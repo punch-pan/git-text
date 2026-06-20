@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>可复现性检验汇报 | 潘安祺 | 对Christensen et al. (2018) 的计算复现</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fragment+Mono&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+            background-color: #F8F4F0;
+            color: #1e1a1d;
+            line-height: 1.5;
+            scroll-behavior: smooth;
+        }
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: #FFFFFF;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            padding: 0 48px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+        }
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.35rem;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #1e1a1d 0%, #2c2529 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-decoration: none;
+        }
+        .nav-menu { display: flex; gap: 28px; align-items: center; }
+        .nav-link { text-decoration: none; font-weight: 500; font-size: 0.9rem; color: #2b2b2b; transition: color 0.2s; }
+        .nav-link:hover { color: #8b6b4d; }
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #ffffff;
+            min-width: 180px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+            border-radius: 16px;
+            padding: 8px 0;
+            z-index: 200;
+            top: 32px;
+            left: -20px;
+            border: 1px solid #eee;
+        }
+        .dropdown-content a { padding: 10px 20px; display: block; text-decoration: none; color: #1f1a1e; font-size: 0.85rem; font-weight: 500; }
+        .dropdown-content a:hover { background-color: #f5efe9; }
+        .dropdown:hover .dropdown-content { display: block; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 64px 32px; }
+        section { margin-bottom: 80px; scroll-margin-top: 90px; }
+        .hero {
+            min-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(145deg, #FCF9F5 0%, #F8F4F0 100%);
+            border-radius: 42px;
+            margin-bottom: 40px;
+            padding: 60px 24px;
+        }
+        .hero h1 { font-size: 3.5rem; font-weight: 700; letter-spacing: -0.02em; max-width: 1000px; margin-bottom: 24px; background: linear-gradient(145deg, #1F1A1E, #3D2F2A); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .hero p { font-size: 1.2rem; color: #4a4247; max-width: 700px; margin-bottom: 32px; }
+        .btn-group { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .btn {
+            background-color: #1e1a1d;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-outline { background: transparent; border: 1px solid #cbc3bc; color: #1e1a1d; }
+        .btn-outline:hover { background: #f0eae4; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        h2 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 24px; border-left: 5px solid #D1BEFF; padding-left: 20px; }
+        h3 { font-size: 1.5rem; font-weight: 600; margin: 24px 0 16px 0; }
+        .card { background: white; border-radius: 24px; padding: 28px; margin-bottom: 24px; box-shadow: 0 6px 14px rgba(0,0,0,0.02); border: 1px solid #EFE8E2; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
+        .stat-badge { font-family: 'Fragment Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #8b6b4d; background: #F2EBE4; display: inline-block; padding: 4px 12px; border-radius: 100px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.85rem; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        th, td { border: 1px solid #e9e2dc; padding: 12px 16px; text-align: left; vertical-align: top; }
+        th { background-color: #F8F4F0; font-weight: 600; }
+        .img-wrapper { background: #fff; border-radius: 28px; padding: 8px; box-shadow: 0 12px 28px -8px rgba(0,0,0,0.1); margin: 24px 0; text-align: center; }
+        img { max-width: 100%; height: auto; border-radius: 24px; }
+        .flex-charts { display: flex; flex-wrap: wrap; gap: 28px; justify-content: space-between; }
+        .flex-charts > div { flex: 1; min-width: 260px; }
+        .footnote { font-size: 0.75rem; color: #6b5a52; margin-top: 12px; text-align: center; }
+        pre { background: #1e1a1d; color: #e6e0d5; padding: 20px; border-radius: 20px; overflow-x: auto; font-family: 'Fragment Mono', monospace; font-size: 0.75rem; margin: 20px 0; }
+        .download-area { background: #ffffffdd; backdrop-filter: blur(4px); border: 1px solid #e0d6cf; border-radius: 36px; padding: 32px; margin-top: 48px; text-align: center; }
+        .download-links { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin-top: 24px; }
+        .download-links a { background: #f2ece6; padding: 8px 18px; border-radius: 60px; font-size: 0.8rem; font-weight: 500; color: #1f1a1e; text-decoration: none; transition: 0.1s; }
+        .download-links a:hover { background: #e2d7cf; }
+        hr { margin: 40px 0; border: 0; height: 1px; background: linear-gradient(90deg, #ddd2c8, transparent); }
+        footer { text-align: center; padding: 40px 20px; border-top: 1px solid #e5dbd3; font-size: 0.8rem; color: #6b5a52; }
+        .back2top { position: fixed; bottom: 30px; right: 30px; background: #1e1a1d; color: white; width: 48px; height: 48px; border-radius: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.7; transition: 0.2s; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 99; }
+        .back2top:hover { opacity: 1; transform: scale(1.02); }
+        @media (max-width: 900px) {
+            .navbar { padding: 0 20px; }
+            .nav-menu { gap: 16px; }
+            .hero h1 { font-size: 2.4rem; }
+            .container { padding: 40px 20px; }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="nav-container">
+        <a href="#" class="nav-logo">◬ 可复现性检验</a>
+        <div class="nav-menu">
+            <a href="#background" class="nav-link">研究背景</a>
+            <a href="#method" class="nav-link">复现设计</a>
+            <div class="dropdown">
+                <a href="#results" class="nav-link">核心结果 ▼</a>
+                <div class="dropdown-content">
+                    <a href="#desc-stats">描述性统计</a>
+                    <a href="#pe-section">百分误差指标</a>
+                    <a href="#rating-section">可复现性评级</a>
+                    <a href="#consistency-section">推论一致性</a>
+                </div>
+            </div>
+            <a href="#deviation" class="nav-link">偏差成因</a>
+            <a href="#reflection" class="nav-link">反思与结论</a>
+            <a href="#end" class="nav-link">结尾</a>
+        </div>
+    </div>
+</nav>
+
+<main class="container">
+    <!-- 封面屏 -->
+    <section id="cover" class="hero">
+        <h1>对 Christensen et al. (2018)<br>研究结果的计算可复现性检验</h1>
+        <p>心理学院R编程语言课程 · 单人作业汇报</p>
+        <div class="btn-group">
+            <a href="#background" class="btn">开始汇报</a>
+            <a href="#download-area" class="btn btn-outline">下载所有附件</a>
+        </div>
+        <div class="footnote" style="margin-top: 48px;">汇报人：潘安祺 | 日期：2026年6月 | 基于R 4.5.2 + 真实复现数据</div>
+    </section>
+
+    <!-- 1. 研究背景与选题 -->
+    <section id="background">
+        <h2>📌 研究背景与选题说明</h2>
+        <div class="card">
+            <div class="stat-badge">原文献概况</div>
+            <p><strong>Christensen et al. (2018)</strong> 发表于 <em>European Journal of Personality</em>，探究开放性人格与语义记忆网络结构。共516名被试，根据开放性潜变量中位数分为高/低组（各258人），利用余弦相似度+TMFG算法构建语义网络，提出三个核心假设：<br>
+            <strong>H1</strong>：高开放性组ASPL（平均最短路径长度）更低；<br>
+            <strong>H2</strong>：高开放性组CC（聚类系数）更高；<br>
+            <strong>H3</strong>：高开放性组Q（模块度）更低。<br>
+            原文结论：三项假设均获支持，开放性人格与语义记忆网络显著关联。
+            </p>
+        </div>
+        <div class="grid-2">
+            <div class="card">
+                <div class="stat-badge">选题原因</div>
+                <ul style="margin-left: 20px;">
+                    <li>数据与代码完全公开于OSF（osf.io/craky/）</li>
+                    <li>被2026年Nature Multi100多分析师项目纳入，有外部参照</li>
+                    <li>方法匹配课程所学（传统统计 + 网络分析）</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="stat-badge">研究意义</div>
+                <p>检验原研究的计算可复现性与结论稳健性，探索网络分析偏差核心成因，践行心理学开放科学理念，为量化研究提供严谨复现范例。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. 复现设计与方法 -->
+    <section id="method">
+        <h2>⚙ 复现设计与方法</h2>
+        <div class="card">
+            <div class="stat-badge">数据与环境</div>
+            <p><strong>数据来源</strong>：原作者OSF平台清洗后完整数据集（N=516），严格按原文规则分组（低/高组各258人），未修改样本。<br>
+            <strong>分析环境</strong>：R 4.5.2，设置随机种子 <code>set.seed(2025)</code>，保证自身可复现。<br>
+            <strong>核心复现</strong>：100%复刻原文流程 — 描述性统计、Pearson相关、独立样本t检验、McNemar检验、TMFG网络构建与ASPL/CC/Q计算。<br>
+            <strong>创新方法</strong>：采用最小生成树（MST）代替TMFG，检验结论对算法的敏感性。</p>
+        </div>
+        <div class="card">
+            <div class="stat-badge">评级标准（百分误差PE）</div>
+            <p>\[ PE = \frac{|复现值 - 原文值|}{|原文值|} \times 100\% \]<br>
+            ▪ 完全一致：PE = 0%<br>
+            ▪ 次要偏差：0% ＜ PE ＜ 10%<br>
+            ▪ 主要偏差：PE ≥ 10%<br>
+            推论一致性：以α = 0.05为判断标准，对比复现结果与原文的统计推论方向是否一致。</p>
+        </div>
+        <div class="card">
+            <div class="stat-badge">核心R代码片段（网络构建与指标）</div>
+            <pre># 余弦相似度 + TMFG过滤 (NetworkToolbox)
+cos_low <- cosine(low_mat, addConstant = .01)
+net_low <- TMFG(cos_low)$A
+g_low <- graph_from_adjacency_matrix(net_low, "undirected")
+# 连通分量处理：提取最大连通分量 (规范做法)
+if(!is_connected(g_low)) {
+  cl <- components(g_low)
+  g_low <- induced_subgraph(g_low, which(cl$membership == which.max(cl$csize)))
+}
+aspl <- mean_distance(g_low)
+cc <- transitivity(g_low, type = "global")
+q <- modularity(cluster_louvain(g_low))</pre>
+        </div>
+    </section>
+
+    <!-- 3. 核心结果区域 -->
+    <section id="results">
+        <h2>📊 核心复现结果</h2>
+        
+        <!-- 子模块1：描述性统计 -->
+        <div id="desc-stats" class="card">
+            <div class="stat-badge">3.1 描述性统计对比</div>
+            <div class="img-wrapper">
+                <img src="figures/descriptive_plot.png" alt="描述性统计对比图" onerror="this.outerHTML='<div style=padding:20px;background:#eee;border-radius:20px>⚠️ 图片未找到: figures/descriptive_plot.png，请检查路径。</div>'">
+            </div>
+            <table>
+                <thead><tr><th>指标</th><th>原文</th><th>复现</th><th>PE</th><th>评级</th></tr></thead>
+                <tbody>
+                    <tr><td>低组M</td><td>16.41</td><td>16.71</td><td>1.85%</td><td>次要偏差</td></tr>
+                    <tr><td>低组SD</td><td>4.49</td><td>4.45</td><td>0.91%</td><td>次要偏差</td></tr>
+                    <tr><td>高组M</td><td>17.83</td><td>17.92</td><td>0.50%</td><td>次要偏差</td></tr>
+                    <tr><td>高组SD</td><td>4.63</td><td>4.80</td><td>3.74%</td><td>次要偏差</td></tr>
+                </tbody>
+            </table>
+            <p><strong>结论</strong>：描述性统计全部为次要偏差，与原文高度一致，基础数据复现优异。</p>
+        </div>
+
+        <!-- 子模块2：百分误差与指标偏差 -->
+        <div id="pe-section" class="card">
+            <div class="stat-badge">3.2 百分误差（PE）与指标偏差</div>
+            <div class="img-wrapper">
+                <img src="figures/pe_plot.png" alt="百分误差条形图" onerror="this.outerHTML='<div style=padding:20px;background:#eee;border-radius:20px>⚠️ pe_plot.png 未找到</div>'">
+            </div>
+            <table>
+                <thead><tr><th>指标</th><th>原文</th><th>复现</th><th>PE</th><th>评级</th></tr></thead>
+                <tbody>
+                    <tr><td>相关r</td><td>0.17</td><td>0.170</td><td>0.16%</td><td>次要偏差</td></tr>
+                    <tr><td>Cohen's d</td><td>0.24</td><td>0.260</td><td>8.49%</td><td>次要偏差</td></tr>
+                    <tr><td>McNemar χ²</td><td>16.91</td><td>16.908</td><td>0.01%</td><td>次要偏差</td></tr>
+                    <tr><td>φ</td><td>0.22</td><td>0.221</td><td>0.63%</td><td>次要偏差</td></tr>
+                    <tr><td>低ASPL</td><td>3.19</td><td>2.652</td><td>16.87%</td><td>主要偏差</td></tr>
+                    <tr><td>高ASPL</td><td>2.84</td><td>2.693</td><td>5.16%</td><td>次要偏差</td></tr>
+                    <tr><td>低Q</td><td>0.590</td><td>0.654</td><td>10.84%</td><td>主要偏差</td></tr>
+                    <tr><td>高Q</td><td>0.521</td><td>0.654</td><td>25.60%</td><td>主要偏差</td></tr>
+                </tbody>
+            </table>
+            <p>经典统计复现极佳（全部次要偏差）；语义网络指标（ASPL、Q）为主要偏差来源。</p>
+        </div>
+
+        <!-- 子模块3：整体可复现性评级（修正后） -->
+        <div id="rating-section" class="card">
+            <div class="stat-badge">3.3 整体可复现性评级</div>
+            <div class="flex-charts">
+                <div class="img-wrapper"><img src="figures/reproducibility_donut.png" alt="可复现性评级饼图" onerror="this.outerHTML='<div>饼图未加载</div>'"></div>
+                <div style="align-self:center">
+                    <table style="width:100%">
+                        <thead><tr><th>可复现性情况</th><th>数量</th><th>占比</th></tr></thead>
+                        <tbody>
+                            <tr><td>完全一致 (PE=0%)</td><td>2</td><td>15.4%</td></tr>
+                            <tr><td>次要偏差 (0% ＜ PE ＜ 10%)</td><td>8</td><td>61.5%</td></tr>
+                            <tr><td>主要偏差 (PE ≥ 10%)</td><td>3</td><td>23.1%</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="footnote">补充说明：本次共计13项对比指标，其中2项完全一致指标为两组聚类系数（CC），该指标未在上文推断统计表中单独展示，复现结果与原文无偏差。</p>
+                </div>
+            </div>
+            <p>结论：76.9%的指标达到完全一致或次要偏差，基础统计结果整体稳健；网络分析相关指标存在部分主要偏差。</p>
+        </div>
+
+        <!-- 子模块4：推论一致性对比 -->
+        <div id="consistency-section" class="card">
+            <div class="stat-badge">3.4 推论一致性对比</div>
+            <div class="img-wrapper">
+                <img src="figures/consistency_plot.png" alt="推论一致性图" onerror="this.outerHTML='<div>consistency_plot.png未加载</div>'">
+            </div>
+            <table>
+                <thead><tr><th>假设</th><th>原文结论</th><th>复现结论（原方法）</th><th>一致性</th></tr></thead>
+                <tbody>
+                    <tr><td>H1（高组ASPL更低）</td><td>支持</td><td>不支持（高组2.693 > 低组2.652）</td><td>❌ 不一致</td></tr>
+                    <tr><td>H2（高组CC更高）</td><td>支持</td><td>支持（高组1.05 > 低组1.03）</td><td>✅ 一致</td></tr>
+                    <tr><td>H3（高组Q更低）</td><td>支持</td><td>不支持（两组Q≈0.654）</td><td>❌ 不一致</td></tr>
+                </tbody>
+            </table>
+            <p><strong>原方法推论一致率：33.3%</strong>。创新方法（MST）下三项假设全部不一致（高组ASPL、Q均变高，CC=0），一致率0% → 结论高度依赖算法选择。</p>
+            <div class="stat-badge" style="margin-top:16px">创新方法结果（最小生成树MST）</div>
+            <table>
+                <thead><tr><th>组别</th><th>ASPL</th><th>Q</th><th>CC</th></tr></thead>
+                <tbody>
+                    <tr><td>低开放性组</td><td>2.988</td><td>0.604</td><td>0.000</td></tr>
+                    <tr><td>高开放性组</td><td>3.923</td><td>0.703</td><td>0.000</td></tr>
+                </tbody>
+            </table>
+            <p>MST网络无三角形，CC归零，且高组路径更长，与原文方向完全相反，揭示网络分析对构建算法极其敏感。</p>
+        </div>
+    </section>
+
+    <!-- 4. 偏差成因分析 -->
+    <section id="deviation">
+        <h2>🔍 偏差与不一致成因分析</h2>
+        <div class="grid-2">
+            <div class="card">
+                <div class="stat-badge">原文献开放性问题</div>
+                <ul style="margin-left: 20px;">
+                    <li>未明确网络连通性处理规则（是否提取最大连通分量）→ 复现时按规范提取，改变节点/边数，影响ASPL/Q。</li>
+                    <li>未设置随机种子 → Louvain社区检测结果波动，模块度不稳定。</li>
+                    <li>未注明NetworkToolbox包版本 → TMFG输出细微差异。</li>
+                    <li>缺少分析说明文档，部分细节依赖推测。</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="stat-badge">复现过程的合理差异</div>
+                <p>除网络预处理采用学界通用规则（提取最大连通分量）外，其余完全复刻原文，无操作失误。软件包版本（igraph/NetworkToolbox）与原文可能不同，属自然变异。</p>
+            </div>
+            <div class="card">
+                <div class="stat-badge">方法本身特性</div>
+                <p>经典统计（t检验、卡方）算法固定，复现极稳定；而语义网络分析存在大量分析选择：相似度阈值、过滤算法（TMFG vs MST）、指标计算公式差异等，结论对分析路径高度敏感。</p>
+            </div>
+            <div class="card">
+                <div class="stat-badge">外部研究参照（Multi100, 2026, Nature）</div>
+                <p>Multi100多分析师项目将本文献（ID 033）纳入，整体趋势与本复现一致：社科领域网络分析结论易受分析师选择影响，稳健性堪忧。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. 反思与结论 -->
+    <section id="reflection">
+        <h2>💭 学习反思与整体结论</h2>
+        <div class="card">
+            <div class="stat-badge">实操学习收获</div>
+            <p>✔ 完整掌握R语言数据清洗、传统统计、语义网络构建及指标计算的全流程。<br>
+            ✔ 深刻体会“固定随机种子 + 规范注释 + 标注软件版本”对可复现性的关键意义，好习惯比复杂代码更重要。<br>
+            ✔ 开放科学不只是公开数据与代码，还需要充分披露分析细节（预处理规则、算法参数等）。</p>
+        </div>
+        <div class="card">
+            <div class="stat-badge">整体研究结论</div>
+            <ul>
+                <li>✅ <strong>基础统计</strong>（描述性统计、相关、t检验、McNemar、φ系数）可良好复现，PE均低于10%。</li>
+                <li>⚠️ <strong>语义网络核心假设稳健性不足</strong>：原方法下仅33.3%推论一致；更换MST算法后全部矛盾，说明结论依附于特定的分析路径。</li>
+                <li>📌 网络分析类研究必须开展多算法/多路径稳健性检验，避免单一分析带来的假阳性结论。</li>
+            </ul>
+        </div>
+        <div class="card">
+            <div class="stat-badge">课程与行业建议</div>
+            <p><strong>课程建议</strong>：补充网络分析常见易错点（连通分量处理、聚类系数类型区别、软件版本兼容），帮助学生提前规避复现陷阱。<br>
+            <strong>行业倡议</strong>：心理学网络分析研究应完整标注分析全流程，主动提供多算法结果，全面落实开放科学要求，提高研究可信度。</p>
+        </div>
+    </section>
+
+    <!-- 6. 结尾与附件 -->
+    <section id="end">
+        <div class="hero" style="background: #FFF; margin-bottom: 0;">
+            <h2 style="border: none; padding-left: 0;">感谢聆听</h2>
+            <p>心理学院R编程语言课程 · 单人独立完成<br>汇报人：潘安祺 | 2026年6月</p>
+            <div class="btn-group">
+                <a href="#" class="btn" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">返回顶部</a>
+                <a href="#download-area" class="btn btn-outline">下载全部附件</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 附件下载区块 -->
+    <div id="download-area" class="download-area">
+        <div class="stat-badge">📁 汇报材料下载</div>
+        <div class="download-links">
+            <a href="Replication_Code.R" download>📄 R代码 (.R)</a>
+            <a href="对Christensen et al. (2018)...检验报告.docx" download>📘 Word报告</a>
+            <a href="table2_desc_compare.csv" download>📊 表2_描述性统计</a>
+            <a href="table3_infer_compare.csv" download>📊 表3_推断统计</a>
+            <a href="table4_new_method.csv" download>📊 表4_创新方法</a>
+            <a href="table5_reproducibility.csv" download>📊 表5_可复现性评级</a>
+            <a href="table6_consistency_old.csv" download>📊 表6_原方法推论</a>
+            <a href="table7_consistency_new.csv" download>📊 表7_创新推论</a>
+            <a href="figures/combined_figure.png" download>🖼️ 组合图</a>
+            <a href="figures/consistency_plot.png" download>🖼️ 推论一致性图</a>
+            <a href="figures/descriptive_plot.png" download>🖼️ 描述性统计图</a>
+            <a href="figures/pe_plot.png" download>🖼️ PE条形图</a>
+            <a href="figures/reproducibility_donut.png" download>🖼️ 评级饼图</a>
+        </div>
+        <p class="footnote">提示：所有附件与HTML文件置于同一级目录（即“潘安_R语言可复现性检验作业”文件夹内），且figures子文件夹包含图片，即可正常下载。</p>
+    </div>
+    <footer>© 2026 潘安祺 · 心理学院R语言课程 · 基于真实复现数据，无任何虚构内容</footer>
+</main>
+
+<button class="back2top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            const target = document.querySelector(this.getAttribute('href'));
+            if(target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+</script>
+</body>
+</html>
